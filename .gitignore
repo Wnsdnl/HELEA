@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pth
+*.bin
+*.jsonl
+*.json
+checkpoints/
+wandb/
+.env

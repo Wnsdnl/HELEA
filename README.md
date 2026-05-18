@@ -2,6 +2,8 @@
 
 Code for our paper: **"HELEA: Hard-Negative Benchmarks and LLM-Enhanced Entity Alignment"**
 
+Our Benchmark is available at https://huggingface.co/datasets/anonymous-submission2026/helea-benchmark
+
 ## Overview
 
 HELEA is a two-stage entity alignment framework:

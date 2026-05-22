@@ -21,8 +21,7 @@ from model import BiEncoderModel
 from dataset import serialize_entity_with_name
 
 from cfg import Config
-from prompt_builder import build_reranking_prompt_with_name, parse_response, RERANKING_SYSTEM_PROMPT_WITH_NAME
-from reranker import fuse_scores
+from prompt_builder import build_listwise_prompt_with_name, parse_listwise_response, LISTWISE_SYSTEM_PROMPT_WITH_NAME
 
 
 def load_acc_data(path: str, max_hops: int):
@@ -96,31 +95,48 @@ def compute_llm_scores(
     hops_a_list: list,
     names_b: list,
     hops_b_list: list,
+    dpr_scores: np.ndarray,
     cfg: Config,
 ) -> np.ndarray:
-    prompts = [
-        build_reranking_prompt_with_name(
-            entity_a=names_a[i],
-            hops_a=hops_a_list[i],
-            entity_b=names_b[i],
-            hops_b=hops_b_list[i],
-            max_triples=cfg.max_triples,
+    prompts = []
+    for i in range(len(names_a)):
+        candidate = {
+            "entity_b":  names_b[i],
+            "hops_b":    hops_b_list[i],
+            "dpr_rank":  1,
+            "dpr_score": float(dpr_scores[i]),
+        }
+        prompts.append(
+            build_listwise_prompt_with_name(
+                entity_a=names_a[i],
+                hops_a=hops_a_list[i],
+                candidates=[candidate],
+                max_triples=cfg.max_triples,
+            )
         )
-        for i in range(len(names_a))
-    ]
-
-    print(f"[WithName] First prompt sample:\n{prompts[0]}\n")
 
     print(f"  Sending {len(prompts)} LLM requests (concurrency={cfg.concurrency})...")
     client = AsyncVLLMClient(cfg)
     raw_responses = client.run(
         prompts,
-        system_prompt=RERANKING_SYSTEM_PROMPT_WITH_NAME,
+        system_prompt=LISTWISE_SYSTEM_PROMPT_WITH_NAME,
         temperature=cfg.temperature,
         max_tokens=cfg.max_tokens,
     )
 
-    scores = [parse_response(r)["score"] for r in raw_responses]
+    scores = []
+    fallback_count = 0
+    for r in raw_responses:
+        ranking, parsed_scores = parse_listwise_response(r, k=1)
+        if ranking is not None and 0 in parsed_scores:
+            scores.append(max(0.0, min(1.0, parsed_scores[0])))
+        else:
+            scores.append(0.5)
+            fallback_count += 1
+
+    if fallback_count:
+        print(f"  Parse fallback: {fallback_count}/{len(raw_responses)} ({100*fallback_count/len(raw_responses):.2f}%)")
+
     return np.array(scores, dtype=np.float32)
 
 
@@ -200,7 +216,7 @@ def evaluate_accuracy(cfg: Config, args):
     dpr_scores = compute_dpr_scores(texts_a, texts_b, model, tokenizer, device, cfg)
 
     print(f"\nComputing LLM scores (with name, once for all alphas)...")
-    llm_scores = compute_llm_scores(names_a, hops_a_list, names_b, hops_b_list, cfg)
+    llm_scores = compute_llm_scores(names_a, hops_a_list, names_b, hops_b_list, dpr_scores, cfg)
 
     sims_pos = dpr_scores[labels == 1]
     sims_neg = dpr_scores[labels == 0]

@@ -1,5 +1,4 @@
 import json
-import random
 import torch
 from collections import defaultdict
 from torch.utils.data import Dataset, Sampler
@@ -101,14 +100,6 @@ class PairWithHardNegSampler(Sampler):
 
             batch.append(idx)
             used.add(idx)
-
-            # [HARD-NEG] 같은 entity 이름의 샘플을 배치에 함께 넣는 로직
-            # name = self.index_to_name[idx]
-            # candidates = [i for i in self.name_to_indices[name] if i not in used]
-            # if candidates:
-            #     partner = random.choice(candidates)
-            #     batch.append(partner)
-            #     used.add(partner)
 
             if len(batch) >= self.batch_size:
                 yield batch[:self.batch_size]

@@ -8,80 +8,6 @@ parse_listwise_response: LLM 응답 텍스트 → 0-indexed 순위 리스트 변
 
 import re
 
-# ──────────────────────────────────────────────
-# Pointwise scoring (eval_accuracy.py 용)
-# ──────────────────────────────────────────────
-
-RERANKING_SYSTEM_PROMPT = (
-    "You are an expert in cross-knowledge-graph entity alignment. "
-    "You will be given two entities from different knowledge graphs (DBpedia and Wikidata). "
-    "Entity names are hidden — base your judgment EXCLUSIVELY on the knowledge graph triples. "
-    "Entities with identical names can be completely different real-world objects. "
-    "Output a single similarity score between 0.0 and 1.0 indicating how likely the two entities "
-    "refer to the same real-world object. "
-    "You MUST output exactly one line in this format: SCORE: <float between 0.0 and 1.0>"
-)
-
-
-def build_reranking_prompt(
-    entity_a: str,
-    hops_a: list,
-    entity_b: str,
-    hops_b: list,
-    max_triples: int = 15,
-) -> str:
-    block_a = format_entity_reranking(entity_a, hops_a, max_triples, label="Entity A (name hidden)")
-    block_b = format_entity_reranking(entity_b, hops_b, max_triples, label="Entity B (name hidden)")
-    return (
-        f"[Entity A]\n{block_a}\n\n"
-        f"[Entity B]\n{block_b}\n\n"
-        "How likely are these two entities the same real-world object? "
-        "Output ONLY: SCORE: <float between 0.0 and 1.0>"
-    )
-
-
-RERANKING_SYSTEM_PROMPT_WITH_NAME = (
-    "You are an expert in cross-knowledge-graph entity alignment. "
-    "You will be given two entities from different knowledge graphs (DBpedia and Wikidata), "
-    "including their names and knowledge graph triples. "
-    "Output a single similarity score between 0.0 and 1.0 indicating how likely the two entities "
-    "refer to the same real-world object. "
-    "You MUST output exactly one line in this format: SCORE: <float between 0.0 and 1.0>"
-)
-
-
-def build_reranking_prompt_with_name(
-    entity_a: str,
-    hops_a: list,
-    entity_b: str,
-    hops_b: list,
-    max_triples: int = 15,
-) -> str:
-    block_a = format_entity_reranking(entity_a, hops_a, max_triples)
-    block_b = format_entity_reranking(entity_b, hops_b, max_triples)
-    return (
-        f"[Entity A]\n{block_a}\n\n"
-        f"[Entity B]\n{block_b}\n\n"
-        "How likely are these two entities the same real-world object? "
-        "Output ONLY: SCORE: <float between 0.0 and 1.0>"
-    )
-
-
-def parse_response(response: str) -> dict:
-    """Parse 'SCORE: 0.85' from LLM response. Returns {"score": float} in [0, 1]."""
-    match = re.search(r"score\s*:\s*([0-9]*\.?[0-9]+)", response, re.IGNORECASE)
-    if match:
-        score = float(match.group(1))
-        score = max(0.0, min(1.0, score))
-    else:
-        score = 0.5  # 파싱 실패 시 중간값으로 fallback
-    return {"score": score}
-
-
-# ──────────────────────────────────────────────
-# Listwise reranking (eval_hit.py / reranker.py 용)
-# ──────────────────────────────────────────────
-
 LISTWISE_SYSTEM_PROMPT = (
     "You are an expert in cross-knowledge-graph entity alignment. "
     "A query entity from DBpedia and several candidate entities from Wikidata are given. "
@@ -90,6 +16,20 @@ LISTWISE_SYSTEM_PROMPT = (
     "(e.g., two different people named the same, two cities with the same name). "
     "The DPR scores are a rough similarity hint — your primary task is to rank by "
     "how well each candidate's triples match the query entity's triples. "
+    "You MUST begin your response immediately with 'RANKING:' — do NOT generate any analysis, "
+    "explanation, or reasoning before the RANKING line. "
+    "If you reason first, your final line MUST be 'RANKING:' (uppercase, exact) followed by "
+    "comma-separated <number>:<score> pairs only. "
+    "Do not copy or repeat triples from the prompt. "
+    "For each candidate, write at most two sentences of analysis."
+)
+
+LISTWISE_SYSTEM_PROMPT_WITH_NAME = (
+    "You are an expert in cross-knowledge-graph entity alignment. "
+    "A query entity from DBpedia and several candidate entities from Wikidata are given, "
+    "including their names and knowledge graph triples. "
+    "The DPR scores are a rough similarity hint — your primary task is to rank by "
+    "how well each candidate's triples and name match the query entity. "
     "You MUST begin your response immediately with 'RANKING:' — do NOT generate any analysis, "
     "explanation, or reasoning before the RANKING line. "
     "If you reason first, your final line MUST be 'RANKING:' (uppercase, exact) followed by "
@@ -154,21 +94,6 @@ def build_listwise_prompt(
         "REASONING: <2-3 sentences: identify the 2-3 most discriminating triples from the query, "
         "then explain which candidate best matches and why others do not>\n"
     )
-
-
-LISTWISE_SYSTEM_PROMPT_WITH_NAME = (
-    "You are an expert in cross-knowledge-graph entity alignment. "
-    "A query entity from DBpedia and several candidate entities from Wikidata are given, "
-    "including their names and knowledge graph triples. "
-    "The DPR scores are a rough similarity hint — your primary task is to rank by "
-    "how well each candidate's triples and name match the query entity. "
-    "You MUST begin your response immediately with 'RANKING:' — do NOT generate any analysis, "
-    "explanation, or reasoning before the RANKING line. "
-    "If you reason first, your final line MUST be 'RANKING:' (uppercase, exact) followed by "
-    "comma-separated <number>:<score> pairs only. "
-    "Do not copy or repeat triples from the prompt. "
-    "For each candidate, write at most two sentences of analysis."
-)
 
 
 def build_listwise_prompt_with_name(

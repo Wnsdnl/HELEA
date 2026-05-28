@@ -79,13 +79,11 @@ subtract_benchmark.py   → remove benchmark overlap from training data
 
 ## Datasets
 
-Benchmark files (DW-15K, DW-HN29K, DY-15K, DY-HN27K) will be released upon paper acceptance.
+Benchmark files are released on Huggingface(https://huggingface.co/datasets/anonymous-submission2026/helea-benchmark).
 
 ## Results
 
 | Model | DW-15K Hit@1 | DW-HN29K F1 | DY-15K Hit@1 | DY-HN27K F1 |
 |-------|-------------|-------------|-------------|-------------|
-| HELEA-Retriever (name-hidden) | 0.814 | 0.894 | 0.220 | 0.737 |
-| HELEA (name-hidden) | 0.875 | **0.972** | 0.271 | 0.905 |
-| HELEA-Retriever (name+triple) | 0.987 | 0.853 | 0.989 | 0.638 |
-| HELEA (name+triple) | **0.993** | 0.967 | **0.992** | **0.932** |
+| HELEA-Retriever | 0.987 | 0.853 | 0.992 | 0.719 |
+| HELEA | 0.993 | 0.967 | 0.992 | 0.931 |

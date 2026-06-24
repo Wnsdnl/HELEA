@@ -1,4 +1,4 @@
-# HELEA: Hard-Negative Entity Alignment
+# HELEA: Hard-Negative Benchmarks and LLM-Enhanced Entity Alignment
 
 Code for our paper: **"HELEA: Hard-Negative Benchmarks and LLM-Enhanced Entity Alignment"**
 
